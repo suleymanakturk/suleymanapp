@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web SSH Client</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #c5c5c5;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #connection-bar {
+            padding: 10px;
+            background-color: #252526;
+            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        input {
+            padding: 5px;
+            background-color: #3c3c3c;
+            border: 1px solid #3c3c3c;
+            color: white;
+            border-radius: 3px;
+        }
+        button {
+            padding: 5px 15px;
+            background-color: #0e639c;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1177bb;
+        }
+        #terminal-container {
+            flex-grow: 1;
+            padding: 10px;
+            overflow: hidden;
+        }
+        #status {
+            margin-left: auto;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div id="connection-bar">
+        <input type="text" id="hostname" placeholder="Hostname" value="localhost">
+        <input type="number" id="port" placeholder="Port" value="22" style="width: 60px;">
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="connectSSH()">Connect</button>
+        <span id="status">Ready</span>
+    </div>
+    <div id="terminal-container"></div>
+
+    <script>
+        const socket = io();
+        const term = new Terminal({
+            cursorBlink: true,
+            theme: {
+                background: '#1e1e1e'
+            }
+        });
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal-container'));
+        fitAddon.fit();
+
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+        });
+
+        term.onData(data => {
+            socket.emit('input', { data: data });
+        });
+
+        socket.on('output', function(msg) {
+            term.write(msg.data);
+        });
+
+        socket.on('status', function(msg) {
+            document.getElementById('status').innerText = msg.msg;
+        });
+
+        function connectSSH() {
+            const hostname = document.getElementById('hostname').value;
+            const port = document.getElementById('port').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!hostname || !username || !password) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            document.getElementById('status').innerText = 'Connecting...';
+            socket.emit('connect_ssh', {
+                hostname: hostname,
+                port: port,
+                username: username,
+                password: password
+            });
+            
+            term.reset();
+            term.focus();
+        }
+    </script>
+</body>
+</html>
